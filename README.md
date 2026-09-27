@@ -19,7 +19,7 @@ Tested in-game on the Steam version (build 11720871): edited saves load normally
 ## Install & run
 
 1. Install [Python 3.8+](https://www.python.org/downloads/). On Windows, tick **"Add python.exe to PATH"**. No extra packages are needed.
-2. Download this repo (**Code → Download ZIP**) and unzip it anywhere.
+2. Download **PreySaveEditor-vX.Y.Z.zip** from the [latest release](https://github.com/Shere-Khan510/prey-save-editor/releases/latest) and unzip it anywhere.
 3. Double-click **`Prey Save Editor.pyw`** (or run `python editor.py`).
 
 ## Usage
