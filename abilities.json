@@ -1,0 +1,1169 @@
+{
+"-6098657798576069258": {
+"name": "Backlash I",
+"cost": 3,
+"power": "KineticShield",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929348608": {
+"name": "Backlash II",
+"cost": 5,
+"power": "KineticShield",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929348616": {
+"name": "Backlash III",
+"cost": 8,
+"power": "KineticShield",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"3149325216951898868": {
+"name": "Combat Focus I",
+"cost": 2,
+"power": "CombatFocus",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216979649415": {
+"name": "Combat Focus II",
+"cost": 5,
+"power": "CombatFocus",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216979649412": {
+"name": "Combat Focus III",
+"cost": 8,
+"power": "CombatFocus",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"3149325216964528002": {
+"name": "Conditioning",
+"cost": 1,
+"power": "",
+"level": "",
+"stats": [
+[
+"hitPoints",
+150.0
+],
+[
+"fatigueMax",
+5.0
+],
+[
+"maxSpeedStand",
+0.2
+],
+[
+"maxSpeedSneak",
+0.08
+],
+[
+"maxSpeedCrawl",
+0.08
+],
+[
+"fatigueDrainRate",
+0.875
+]
+],
+"signals": []
+},
+"3149325216929348919": {
+"name": "Create Phantom I",
+"cost": 4,
+"power": "CreatePhantom",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929348928": {
+"name": "Create Phantom II",
+"cost": 5,
+"power": "CreatePhantom",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929348752": {
+"name": "Cyberkinesis I",
+"cost": 2,
+"power": "Cyberkinesis",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929348761": {
+"name": "Cyberkinesis II",
+"cost": 3,
+"power": "Cyberkinesis",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929348766": {
+"name": "Cyberkinesis III",
+"cost": 5,
+"power": "Cyberkinesis",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"3149325216929347172": {
+"name": "Dismantle I",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216929348335": {
+"name": "Electrostatic Absorption I",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [
+[
+"electrostaticAbsorption",
+0.05
+]
+],
+"signals": []
+},
+"3149325216929348280": {
+"name": "Electrostatic Burst I",
+"cost": 3,
+"power": "ElectrostaticBurst",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929348297": {
+"name": "Electrostatic Burst II",
+"cost": 5,
+"power": "ElectrostaticBurst",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929348303": {
+"name": "Electrostatic Burst III",
+"cost": 5,
+"power": "ElectrostaticBurst",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"3149325216929348322": {
+"name": "Electrostatic Resistance I",
+"cost": 2,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216929611596,
+true
+]
+]
+},
+"3149325216969124537": {
+"name": "Ether Absorption",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [
+[
+"etherAbsorption",
+0.05
+]
+],
+"signals": []
+},
+"3149325216969124146": {
+"name": "Ether Resistance",
+"cost": 1,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216969124662,
+true
+]
+]
+},
+"3149325216929349159": {
+"name": "Fear Resistance I",
+"cost": 2,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216929611619,
+true
+]
+]
+},
+"3149325216929346739": {
+"name": "Field Surgeon I",
+"cost": 5,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216929347337": {
+"name": "Firearms I",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [
+[
+"shotgunCriticalHitChance",
+0.04
+],
+[
+"pistolCriticalHitChance",
+0.04
+]
+],
+"signals": [
+[
+3149325216929612335,
+false
+]
+]
+},
+"3149325216929347338": {
+"name": "Firearms II",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [
+[
+"shotgunCriticalHitChance",
+0.04
+],
+[
+"pistolCriticalHitChance",
+0.04
+]
+],
+"signals": [
+[
+3149325216929612347,
+false
+]
+]
+},
+"3149325216929347173": {
+"name": "Gunsmith I",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216929347317": {
+"name": "Gunsmith II",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"-6098657798576069861": {
+"name": "Hacking I",
+"cost": 1,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"-6098657798576070157": {
+"name": "Hacking II",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216928600147": {
+"name": "Hacking III",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216928600154": {
+"name": "Hacking IV",
+"cost": 8,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"-7804857887856948615": {
+"name": "Hacking V",
+"cost": 0,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216929349177": {
+"name": "Hypnosis I",
+"cost": 2,
+"power": "Hypnosis",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929349169": {
+"name": "Hypnosis II",
+"cost": 4,
+"power": "Hypnosis",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929348807": {
+"name": "Hypnosis III",
+"cost": 6,
+"power": "Hypnosis",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"-6098657798576069138": {
+"name": "Kinetic Blast I",
+"cost": 3,
+"power": "KineticBlast",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929348629": {
+"name": "Kinetic Blast II",
+"cost": 5,
+"power": "KineticBlast",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929348634": {
+"name": "Kinetic Blast III",
+"cost": 5,
+"power": "KineticBlast",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"3149325216929346685": {
+"name": "Lab Tech I",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216929346734": {
+"name": "Lab Tech II",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216928599448": {
+"name": "Leverage I",
+"cost": 1,
+"power": "",
+"level": "",
+"stats": [
+[
+"throwImpulse",
+7.0
+],
+[
+"throwArticulatedImpulse",
+3.0
+]
+],
+"signals": []
+},
+"3149325216928599824": {
+"name": "Leverage II",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [
+[
+"throwArticulatedImpulse",
+3.0
+],
+[
+"throwImpulse",
+5.0
+],
+[
+"carryLeverage1SpeedScale",
+0.25
+]
+],
+"signals": [
+[
+3149325216962190866,
+false
+]
+]
+},
+"3149325216933436173": {
+"name": "Leverage III",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [
+[
+"throwArticulatedImpulse",
+3.0
+],
+[
+"throwImpulse",
+5.0
+],
+[
+"carryLeverage1SpeedScale",
+0.25
+],
+[
+"carryLeverage2SpeedScale",
+0.4
+]
+],
+"signals": [
+[
+3149325216962190976,
+false
+]
+]
+},
+"3149325216929348643": {
+"name": "Lift I",
+"cost": 2,
+"power": "Lift",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929348650": {
+"name": "Lift II",
+"cost": 5,
+"power": "Lift",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216957631045": {
+"name": "Materials Expert",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [
+[
+"recyclingYieldScale",
+0.2
+]
+],
+"signals": []
+},
+"3149325216929347144": {
+"name": "Metabolic Conversion I",
+"cost": 2,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216929611827,
+true
+]
+]
+},
+"-6098657798576069734": {
+"name": "Mimic I",
+"cost": 2,
+"power": "Mimic",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"-6098657798576069434": {
+"name": "Mimic II",
+"cost": 4,
+"power": "Mimic",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929348778": {
+"name": "Mimic III",
+"cost": 5,
+"power": "Mimic",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"3149325216929347345": {
+"name": "Mobility I",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [
+[
+"maxSpeedCrawl",
+0.42
+],
+[
+"maxSpeedSneak",
+0.42
+],
+[
+"maxSpeedStand",
+1.05
+],
+[
+"hfovDuringSprint",
+-3.0
+]
+],
+"signals": []
+},
+"3149325216929347498": {
+"name": "Mobility II",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [
+[
+"jumpHeight",
+1.75
+],
+[
+"acceleratedSprintSpeedScale",
+0.345
+],
+[
+"hfovDuringSprint",
+-3.0
+],
+[
+"hfovSprintInterpTime",
+0.7
+]
+],
+"signals": []
+},
+"3149325216929346740": {
+"name": "Necropsy Tech I",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216929346737": {
+"name": "Physician I",
+"cost": 1,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216929611857,
+true
+]
+]
+},
+"3149325216929346738": {
+"name": "Physician II",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216929611868,
+true
+]
+]
+},
+"3149325216929347147": {
+"name": "Neurostimulant I",
+"cost": 2,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216929611879,
+true
+]
+]
+},
+"3149325216977824648": {
+"name": "Neurostimulant II",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216977825257,
+true
+]
+]
+},
+"3149325216929347148": {
+"name": "Psionic Aptitude I",
+"cost": 2,
+"power": "",
+"level": "",
+"stats": [
+[
+"psiPointsPool",
+50.0
+]
+],
+"signals": []
+},
+"3149325216929347150": {
+"name": "Psionic Aptitude II",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [
+[
+"psiPointsPool",
+50.0
+]
+],
+"signals": []
+},
+"3149325216929347152": {
+"name": "Psionic Aptitude III",
+"cost": 5,
+"power": "",
+"level": "",
+"stats": [
+[
+"psiPointsPool",
+50.0
+]
+],
+"signals": []
+},
+"3149325216929349114": {
+"name": "Psychoshock I",
+"cost": 3,
+"power": "MindBlast",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929349124": {
+"name": "Psychoshock II",
+"cost": 5,
+"power": "MindBlast",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929349128": {
+"name": "Psychoshock III",
+"cost": 5,
+"power": "MindBlast",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"3149325216929347153": {
+"name": "Psychotronics I",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [
+[
+"scopeModSlots",
+2.0
+]
+],
+"signals": []
+},
+"3149325216929347155": {
+"name": "Psychotronics II",
+"cost": 5,
+"power": "",
+"level": "",
+"stats": [
+[
+"scopeModSlots",
+2.0
+]
+],
+"signals": []
+},
+"3149325216929347156": {
+"name": "Psychotronics III",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [
+[
+"scopeModSlots",
+2.0
+]
+],
+"signals": []
+},
+"3149325216929347327": {
+"name": "Pulverize I",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [
+[
+"wrenchCriticalHitChance",
+0.25
+]
+],
+"signals": []
+},
+"3149325216929348911": {
+"name": "Regeneration I",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [
+[
+"regenPowerMaxRegen",
+100.0
+]
+],
+"signals": []
+},
+"3149325216957629675": {
+"name": "Regeneration II",
+"cost": 5,
+"power": "",
+"level": "",
+"stats": [
+[
+"regenPowerMaxRegen",
+150.0
+]
+],
+"signals": []
+},
+"3149325216929348589": {
+"name": "Remote Manipulation I",
+"cost": 2,
+"power": "RemoteManipulation",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929348687": {
+"name": "Remote Manipulation II",
+"cost": 3,
+"power": "RemoteManipulation",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929348694": {
+"name": "Remote Manipulation III",
+"cost": 5,
+"power": "RemoteManipulation",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"3149325216929347161": {
+"name": "Repair I",
+"cost": 1,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216929347163": {
+"name": "Repair II",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [
+[
+"repairDiscount",
+1.0
+],
+[
+"repairTimeScale",
+-0.25
+],
+[
+"amountToRepair",
+10.0
+]
+],
+"signals": [
+[
+3149325216993978019,
+true
+]
+]
+},
+"3149325216929347167": {
+"name": "Repair III",
+"cost": 8,
+"power": "",
+"level": "",
+"stats": [
+[
+"repairDiscount",
+1.0
+],
+[
+"repairTimeScale",
+-0.25
+],
+[
+"amountToRepair",
+15.0
+]
+],
+"signals": [
+[
+3149325216993978339,
+true
+]
+]
+},
+"3149325216929348840": {
+"name": "Shift I",
+"cost": 2,
+"power": "Shift",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929348853": {
+"name": "Shift II",
+"cost": 4,
+"power": "Shift",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929347574": {
+"name": "Sneak Attack I",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [
+[
+"sneakAttackSignalScale",
+0.5
+]
+],
+"signals": []
+},
+"3149325216957629639": {
+"name": "Sneak Attack II",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [
+[
+"sneakAttackSignalScale",
+0.5
+]
+],
+"signals": []
+},
+"3149325216964511506": {
+"name": "Stamina I",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [
+[
+"fatigueMax",
+20.0
+],
+[
+"fatigueDrainRate",
+3.5
+]
+],
+"signals": []
+},
+"3149325216964516907": {
+"name": "Stamina II",
+"cost": 5,
+"power": "",
+"level": "",
+"stats": [
+[
+"fatigueMax",
+25.0
+],
+[
+"fatigueDrainRate",
+4.375
+]
+],
+"signals": []
+},
+"3149325216929347556": {
+"name": "Stealth I",
+"cost": 2,
+"power": "",
+"level": "",
+"stats": [
+[
+"sneakVisibilityScalar",
+-0.15
+],
+[
+"crawlVisibilityScalar",
+-0.1
+]
+],
+"signals": []
+},
+"3149325216929347559": {
+"name": "Stealth II",
+"cost": 5,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216929347561": {
+"name": "Stealth III",
+"cost": 8,
+"power": "",
+"level": "",
+"stats": [],
+"signals": []
+},
+"3149325216929347329": {
+"name": "Suit Modification I",
+"cost": 2,
+"power": "",
+"level": "",
+"stats": [
+[
+"suitModSlots",
+2.0
+],
+[
+"inventoryRows",
+1.0
+],
+[
+"inventoryColumns",
+1.0
+]
+],
+"signals": []
+},
+"3149325216929347333": {
+"name": "Suit Modification II",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [
+[
+"inventoryColumns",
+1.0
+],
+[
+"inventoryRows",
+1.0
+],
+[
+"suitModSlots",
+2.0
+]
+],
+"signals": []
+},
+"3149325216929347335": {
+"name": "Suit Modification III",
+"cost": 6,
+"power": "",
+"level": "",
+"stats": [
+[
+"inventoryRows",
+1.0
+],
+[
+"inventoryColumns",
+1.0
+],
+[
+"suitModSlots",
+2.0
+]
+],
+"signals": []
+},
+"3149325216929348418": {
+"name": "Thermal Absorption I",
+"cost": 4,
+"power": "",
+"level": "",
+"stats": [
+[
+"thermalAbsorption",
+0.05
+]
+],
+"signals": []
+},
+"3149325216929348386": {
+"name": "Thermal Blast I",
+"cost": 3,
+"power": "ThermalBlast",
+"level": "1",
+"stats": [],
+"signals": []
+},
+"3149325216929348396": {
+"name": "Thermal Blast II",
+"cost": 5,
+"power": "ThermalBlast",
+"level": "2",
+"stats": [],
+"signals": []
+},
+"3149325216929348401": {
+"name": "Thermal Blast III",
+"cost": 5,
+"power": "ThermalBlast",
+"level": "3",
+"stats": [],
+"signals": []
+},
+"3149325216929348410": {
+"name": "Thermal Resistance I",
+"cost": 2,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216929611941,
+true
+]
+]
+},
+"3149325216929347520": {
+"name": "Toughness I",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [
+[
+"hitPoints",
+350.0
+],
+[
+"lowHealthRegenThreshold",
+100.0
+]
+],
+"signals": []
+},
+"3149325216929347518": {
+"name": "Toughness II",
+"cost": 5,
+"power": "",
+"level": "",
+"stats": [
+[
+"hitPoints",
+500.0
+],
+[
+"lowHealthRegenThreshold",
+100.0
+]
+],
+"signals": []
+},
+"3149325216929347516": {
+"name": "Toughness III",
+"cost": 8,
+"power": "",
+"level": "",
+"stats": [
+[
+"hitPoints",
+1000.0
+],
+[
+"lowHealthRegenThreshold",
+100.0
+]
+],
+"signals": []
+},
+"3149325216929347318": {
+"name": "Wrench Fu I",
+"cost": 3,
+"power": "",
+"level": "",
+"stats": [
+[
+"fatigueGainedFromChargedWrench",
+-4.375
+],
+[
+"fatigueGainedFromWrench",
+-4.375
+]
+],
+"signals": []
+},
+"3149325216929347322": {
+"name": "Wrench Fu II",
+"cost": 5,
+"power": "",
+"level": "",
+"stats": [],
+"signals": [
+[
+3149325216929611973,
+false
+]
+]
+}
+}
