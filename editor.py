@@ -84,6 +84,84 @@ def game_running():
         return False
 
 
+# ---------------------------------------------------------------- launching the game
+
+STEAM_APP_ID = "480490"
+SETTINGS_PATH = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "PreySaveEditor",
+                             "settings.json")
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(settings):
+    os.makedirs(os.path.dirname(SETTINGS_PATH), exist_ok=True)
+    with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2)
+
+
+def _reg_value(root, key, name):
+    try:
+        import winreg
+        with winreg.OpenKey(root, key) as k:
+            return winreg.QueryValueEx(k, name)[0]
+    except (OSError, ImportError):
+        return None
+
+
+def steam_has_prey():
+    """True if Steam has Prey installed (so steam://rungameid works)."""
+    try:
+        import winreg
+    except ImportError:
+        return False
+    steam = _reg_value(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam", "SteamPath")
+    if not steam:
+        return False
+    libs = [steam]
+    try:
+        with open(os.path.join(steam, "steamapps", "libraryfolders.vdf"), encoding="utf-8") as f:
+            libs += [p.replace("\\\\", "\\") for p in re.findall(r'"path"\s+"([^"]+)"', f.read())]
+    except OSError:
+        pass
+    return any(os.path.isfile(os.path.join(lib, "steamapps", "appmanifest_%s.acf" % STEAM_APP_ID)) for lib in libs)
+
+
+def gog_prey_exe():
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\GOG.com\Games") as games:
+            for i in range(winreg.QueryInfoKey(games)[0]):
+                sub = winreg.EnumKey(games, i)
+                with winreg.OpenKey(games, sub) as g:
+                    try:
+                        name = winreg.QueryValueEx(g, "gameName")[0]
+                        path = winreg.QueryValueEx(g, "path")[0]
+                    except OSError:
+                        continue
+                if name.strip().lower() == "prey":
+                    exe = os.path.join(path, "Binaries", "Danielle", "x64", "Release", "Prey.exe")
+                    if os.path.isfile(exe):
+                        return exe
+    except (OSError, ImportError):
+        pass
+    return None
+
+
+def launch_prey(exe=None):
+    """Start the game. Returns a short description of how it was launched."""
+    if exe:
+        subprocess.Popen([exe], cwd=os.path.dirname(exe))
+        return exe
+    os.startfile("steam://rungameid/%s" % STEAM_APP_ID)
+    return "Steam"
+
+
 def read_meta(slot_dir):
     info = {}
     try:
@@ -433,6 +511,8 @@ class EditorApp(tk.Tk):
         ttk.Button(top, text="Load", command=self.load_selected).pack(side="left")
         ttk.Button(top, text="Open file...", command=self.open_file).pack(side="left", padx=4)
         ttk.Button(top, text="Refresh", command=self.refresh_slots).pack(side="left")
+        ttk.Button(top, text="Launch Prey", command=self.launch_game).pack(side="left", padx=(16, 0))
+        ttk.Button(top, text="...", width=3, command=self.choose_game_exe).pack(side="left")
         self.save_btn = ttk.Button(top, text="Save changes", command=self.do_save, state="disabled")
         self.save_btn.pack(side="right")
         ttk.Button(top, text="Backups...", command=self.open_backups).pack(side="right", padx=4)
@@ -1000,6 +1080,54 @@ class EditorApp(tk.Tk):
         self.save_btn.config(state="disabled")
         self.status.set("Saved %s   (backup: %s)" % (path, bak))
         messagebox.showinfo("Saved", "Save written.\n\nBackup of the original:\n%s" % bak)
+
+    def choose_game_exe(self):
+        """Ask for Prey.exe and remember it. Returns the path or None."""
+        settings = load_settings()
+        cur = settings.get("game_exe")
+        p = filedialog.askopenfilename(
+            title="Select Prey.exe (usually ...\\Prey\\Binaries\\Danielle\\x64\\Release\\Prey.exe)",
+            initialdir=os.path.dirname(cur) if cur else None,
+            filetypes=[("Prey.exe", "Prey.exe"), ("Programs", "*.exe")])
+        if not p:
+            return None
+        p = os.path.normpath(p)
+        settings["game_exe"] = p
+        save_settings(settings)
+        self.status.set("Launch Prey will use: " + p)
+        return p
+
+    def launch_game(self):
+        if game_running():
+            messagebox.showinfo("Launch Prey", "Prey is already running.")
+            return
+        if self.dirty:
+            ans = messagebox.askyesnocancel("Unsaved changes", "Save your changes before launching Prey?\n\n"
+                                                              "(The game won't see edits you haven't saved.)")
+            if ans is None:
+                return
+            if ans:
+                self.do_save()
+                if self.dirty:
+                    return
+        exe = load_settings().get("game_exe")
+        if exe and not os.path.isfile(exe):
+            exe = None
+        if not exe:
+            exe = gog_prey_exe()
+        if not exe and not steam_has_prey():
+            messagebox.showinfo("Launch Prey", "Couldn't find Prey automatically.\n\nPlease select Prey.exe - it's "
+                                               "in your Prey folder under Binaries\\Danielle\\x64\\Release.\n"
+                                               "This is only asked once (use the '...' button to change it).")
+            exe = self.choose_game_exe()
+            if not exe:
+                return
+        try:
+            how = launch_prey(exe)
+        except OSError as e:
+            messagebox.showerror("Launch Prey", "Couldn't start the game:\n%s" % e)
+            return
+        self.status.set("Launching Prey (%s) ..." % how)
 
     def current_target(self):
         if self.save:

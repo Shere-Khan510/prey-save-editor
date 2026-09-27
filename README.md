@@ -12,6 +12,7 @@ A save editor for Arkane's **Prey (2017)**. Prey saves are encrypted, compressed
 | **Inventory** | Change the stack count of anything you carry: neuromods, crafting materials, ammo, medkits, … Quick buttons set all materials or all ammo at once. |
 | **Abilities** | Unlock or remove neuromod abilities. The editor applies the same effects the game does when you buy a perk: stat bonuses (e.g. Suit Modification → inventory size and chipset slots), damage-resistance/weapon modifiers, and psi power levels. **Fix missing perk effects** repairs perks that are marked unlocked but never got their bonuses. |
 | **Advanced** | The whole save as a searchable tree. View and edit any value in `save.CSF` or any `*.level` file. |
+| **Launch Prey** | Starts the game from the editor (offers to save your edits first). Steam installs are found automatically; for GOG/other installs it asks for `Prey.exe` once and remembers it (change it with the **…** button). |
 | **Backups…** | Every save writes a backup first. Load any backup into the editor, or restore it over the slot in one click. |
 
 Tested in-game on the Steam version (build 11720871): edited saves load normally and edits such as 99 neuromods show up in-game.
