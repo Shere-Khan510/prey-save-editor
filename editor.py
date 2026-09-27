@@ -38,6 +38,32 @@ try:
 except OSError:
     ABILITIES = {}
 
+try:
+    with open(os.path.join(APP_DIR, "items.json"), encoding="utf-8") as _f:
+        ITEMS = json.load(_f)
+except OSError:
+    ITEMS = []
+ITEM_BY_ARCH = {i["archetype"]: i for i in ITEMS}
+ITEM_BY_ID = {i["id"]: i for i in ITEMS}
+
+# item categories that can't safely be created from scratch (quest items, notes, weapons with complex state)
+_NOT_ADDABLE_CATEGORIES = {"Weapons", "MissionItems", "Data"}
+
+
+def addable_items(chipsets):
+    """Catalog entries the editor can create: inventory items (chipsets=False) or chipsets (True)."""
+    out = []
+    for i in ITEMS:
+        if i["deprecated"] or not i["inventory"] or i["archetype"].endswith(".Random"):
+            continue
+        if i["category"] in _NOT_ADDABLE_CATEGORIES or i["class"].startswith("ArkWeapon") and i["class"] != "ArkWeaponMod":
+            continue
+        if bool(i.get("chipset")) != chipsets:
+            continue
+        out.append(i)
+    return out
+
+
 KEY_STATS = ["HitPoints", "PsiPointsPool", "FatigueMax", "InventoryRows", "InventoryColumns",
              "SuitModSlots", "ScopeModSlots", "MaxOxygen", "FlashlightBatteryCapacity",
              "RecyclingYieldScale", "repairDiscount", "MaxSpeedStand", "JumpHeight"]
@@ -276,9 +302,13 @@ class PreyModel:
                     if n.tag == "Extension" and n.attr("m_count") is not None:
                         ext = n
                         break
-            name = (arch or "").replace("ArkPickups.", "") or (ext.get("name") if ext else "?")
-            items.append({"id": eid, "name": name, "class": cls or (ext.get("name") if ext else ""),
-                          "ext": ext, "slot": v})
+            cat = ITEM_BY_ARCH.get(arch) if arch else None
+            if cat is None and ext is not None:
+                cat = ITEM_BY_ID.get(ext.get("selectedArchetype"))
+            arch = arch or (cat["archetype"] if cat else "")
+            name = cat["name"] if cat else (arch.replace("ArkPickups.", "") or (ext.get("name") if ext else "?"))
+            items.append({"id": eid, "name": name, "archetype": arch,
+                          "class": cls or (ext.get("name") if ext else ""), "ext": ext, "slot": v})
         return items
 
     def abilities(self):
@@ -291,6 +321,238 @@ class PreyModel:
                     info = ABILITIES.get(str(r.get("id")), {})
                     out.append((r, info))
         return out
+
+    # ---- creating new items (mirrors an item the player picked up)
+
+    OWNED_FLAGS = (278546, 33554433)  # BasicEntity flags/flags2 of every item carried by the player
+
+    def _level_prefix(self):
+        ent = self.player_go
+        while ent is not None and ent.tag != "Entity":
+            ent = ent.parent
+        return re.sub(r"\d+$", "", ent.get("UniqueId")) if ent is not None else "campaign/editor"
+
+    def _new_entity_id(self):
+        """Free entity id in the range the game uses for spawned items (counts down from ~65535)."""
+        used = {eid & 0xFFFF for eid in self.entity_by_id}
+        referenced = set()
+        for n in self.save.root.iter():
+            for a in n.attrs:
+                if isinstance(a.value, int) and 0 < a.value < 1 << 32:
+                    referenced.add(a.value & 0xFFFF)
+        high = [i for i in used if i >= 60000]
+        cand = (min(high) if high else 65001) - 1
+        while cand in used or cand in referenced:
+            cand -= 1
+            if cand < 40000:
+                raise RuntimeError("no free entity id found")
+        return cand
+
+    def _item_template(self):
+        """An Entity (extra data) of a simple item the player carries, to clone the game's own layout."""
+        pid = self.player_entity_id()
+        for e in self.extra_by_uid.values():
+            for x in e.iter():
+                if (x.tag == "Extension" and x.attr("m_count") is not None and x.get("ownerId") == pid
+                        and not x.get("name", "").startswith("ArkWeapon")
+                        and all(c.tag == "activeMods" for c in x.children)):
+                    return e
+        return None
+
+    def create_item(self, item, count=1):
+        """Create a new owned item entity. Returns its entity id."""
+        pid = self.player_entity_id()
+        eid = self._new_entity_id()
+        uid = "%s%d" % (self._level_prefix(), eid)
+
+        be = ps.Node("BasicEntity")
+        be.set("id", eid, ps.KIND_INT)
+        be.set("flags", self.OWNED_FLAGS[0], ps.KIND_INT)
+        be.set("flags2", self.OWNED_FLAGS[1], ps.KIND_INT)
+        be.set("class", item["class"], ps.KIND_STR)
+        be.set("archetype", item["archetype"], ps.KIND_STR)
+        be.set("UniqueId", uid, ps.KIND_STR)
+
+        tpl = self._item_template()
+        if tpl is not None:
+            ent = tpl.clone()
+            ent.set("UniqueId", uid)
+        else:  # build the same layout from scratch
+            ent = ps.Node("Entity")
+            ent.set("UniqueId", uid, ps.KIND_STR)
+            proxies = ent.add_child(ps.Node("EntityProxies"))
+            proxies.set("numProxies", 4, ps.KIND_INT)
+            proxies.add_child(ps.Node("Proxy")).add_child(ps.Node("RenderProxy")).set("SceneMask", 1, ps.KIND_INT)
+            proxies.add_child(ps.Node("Proxy")).set("proxyType", 2, ps.KIND_INT)
+            p16 = proxies.add_child(ps.Node("Proxy"))
+            p16.set("proxyType", 16, ps.KIND_INT)
+            go = p16.add_child(ps.Node("GameObject"))
+            go.set("updateState", 3, ps.KIND_INT)
+            go.set("numExtensions", 1, ps.KIND_INT)
+            go.add_child(ps.Node("Extension"))
+            p1 = proxies.add_child(ps.Node("Proxy"))
+            p1.set("proxyType", 1, ps.KIND_INT)
+            phys = p1.add_child(ps.Node("PhysicsProxy"))
+            for k, v in (("mass", 1), ("simclass", 1), ("sequenceNumber", 1), ("physDisabled", 64)):
+                phys.set(k, v, ps.KIND_INT)
+        go = ent.find("GameObject")
+        if go is not None:
+            go.set("updateState", 3, ps.KIND_INT)  # value used by items in the player's possession
+        ext = next(x for x in ent.iter() if x.tag == "Extension")
+        ext.attrs = []
+        ext.children = []
+        ext.set("name", item["class"], ps.KIND_STR)
+        ext.set("m_count", int(count), ps.KIND_INT)
+        ext.set("selectedArchetype", item["id"], ps.KIND_INT64)
+        ext.set("ownerId", pid, ps.KIND_INT)
+        if item["class"] in ("ArkRecyclerJunk", "ArkRecyclerJunkExotic"):
+            ext.set("junk", 1, ps.KIND_INT)
+        if item.get("chipset"):
+            ext.set("new", 1, ps.KIND_INT)
+            ext.add_child(ps.Node("activeMods"))
+        phys = ent.find("PhysicsProxy")
+        if phys is not None:
+            for a in ("pos", "rot"):
+                if phys.attr(a) is not None:
+                    phys.attrs.remove(phys.attr(a))
+            phys.set("mass", self._num(item.get("mass", 1)), ps.KIND_FLOAT)
+
+        bed = self.save.root.find("BasicEntityData")
+        eed = self.save.root.find("ExtraEntityData")
+        bed.add_child(be)
+        eed.add_child(ent)
+        bed.set("BasicEntityDataSize", sum(1 for c in bed.children if c.tag == "BasicEntity"), ps.KIND_INT)
+        eed.set("savedEntityCount", sum(1 for c in eed.children if c.tag == "Entity"), ps.KIND_INT)
+        self.entity_by_id[eid] = be
+        self.extra_by_uid[uid] = ent
+        return eid
+
+    def _grid(self):
+        inv = self.extension("ArkInventory").child("Inventory")
+        stored = inv.child("storedItems")
+        if stored is None:
+            stored = inv.add_child(ps.Node("storedItems"))
+        stats = dict(self.stats())
+
+        def cur(name, default):
+            st = stats.get(name)
+            return int(st.get("currentValue", st.get("baseValue", default))) if st is not None else default
+        cols, rows = cur("InventoryColumns", 9), cur("InventoryRows", 5)
+        taken = set()
+        for i in self._list_items(stored):
+            v = i.child("v")
+            if v is None:
+                continue
+            for dx in range(v.get("width", 1)):
+                for dy in range(v.get("height", 1)):
+                    taken.add((v.get("x", 1) + dx, v.get("y", 1) + dy))
+        return inv, stored, cols, rows, taken
+
+    def item_size(self, item):
+        """(w, h) as stored for this item type in the save if the player has one, else the catalog size."""
+        for it in self.inventory():
+            if it["archetype"] == item["archetype"]:
+                return it["slot"].get("width", 1), it["slot"].get("height", 1)
+        return item["w"], item["h"]
+
+    def free_spot(self, w, h):
+        inv, stored, cols, rows, taken = self._grid()
+        for y in range(1, rows - h + 2):
+            for x in range(1, cols - w + 2):
+                if all((x + dx, y + dy) not in taken for dx in range(w) for dy in range(h)):
+                    return x, y
+        return None
+
+    def existing_stack(self, item):
+        for it in self.inventory():
+            if it["archetype"] == item["archetype"] and it["ext"] is not None:
+                return it
+        return None
+
+    def add_inventory_item(self, item, count):
+        """Add `count` of an item. Stackable items join an existing stack if there is one.
+        Returns a short description of what happened."""
+        if item["stackable"]:
+            stack = self.existing_stack(item)
+            if stack is not None:
+                stack["ext"].set("m_count", stack["ext"].get("m_count", 0) + count, ps.KIND_INT)
+                return "added %d to your existing %s stack" % (count, item["name"])
+            n_new, per = 1, count
+        else:
+            n_new, per = count, 1
+        w, h = self.item_size(item)
+        made = 0
+        for _ in range(n_new):
+            spot = self.free_spot(w, h)
+            if spot is None:
+                break
+            eid = self.create_item(item, per)
+            inv, stored, _, _, _ = self._grid()
+            v = stored.add_child(ps.Node("i")).add_child(ps.Node("v"))
+            v.set("entityId", eid, ps.KIND_INT)
+            v.set("x", spot[0], ps.KIND_INT)
+            v.set("y", spot[1], ps.KIND_INT)
+            v.set("width", w, ps.KIND_INT)
+            v.set("height", h, ps.KIND_INT)
+            self._set_size(stored)
+            inv.set("numOfItems", len(self._list_items(stored)), ps.KIND_INT)
+            made += 1
+        if made == 0:
+            raise RuntimeError("Your inventory has no free %dx%d space for %s." % (w, h, item["name"]))
+        if made < n_new:
+            return "added %d of %d %s (inventory full)" % (made, n_new, item["name"])
+        return "added %s x%d" % (item["name"], count)
+
+    # ---- chipsets
+
+    def chipset_lists(self, kind):
+        """(allChipsets, installedChipsets) nodes for 'suit' or 'scope'."""
+        node = self.player.child("SuitMods" if kind == "suit" else "ScopeMods")
+        if node is None:
+            return None, None
+        return node.child("allChipsets"), node.child("installedChipsets")
+
+    def chipsets(self):
+        """-> list of dicts for every owned chipset."""
+        out = []
+        for kind in ("suit", "scope"):
+            owned, installed = self.chipset_lists(kind)
+            inst = {c.get("v") for c in self._list_items(installed)} if installed is not None else set()
+            for c in self._list_items(owned) if owned is not None else []:
+                eid = c.get("v")
+                be = self.entity_by_id.get(eid)
+                ex = self.extra_by_uid.get(be.get("UniqueId")) if be is not None else None
+                ext = next((x for x in ex.iter() if x.tag == "Extension"), None) if ex is not None else None
+                item = ITEM_BY_ID.get(ext.get("selectedArchetype")) if ext is not None else None
+                if item is None and be is not None:
+                    item = ITEM_BY_ARCH.get(be.get("archetype"))
+                out.append({"id": eid, "kind": kind, "installed": eid in inst,
+                            "name": item["name"] if item else (be.get("archetype") if be is not None else "?"),
+                            "archetype": item["archetype"] if item else ""})
+        return out
+
+    # the game files say scope, but the game itself always files these under suit chipsets
+    CHIPSET_KIND_OVERRIDES = {"ArkPickups.Mods.Psychoscope.MechTechs": "suit"}
+
+    def chipset_kind(self, item):
+        """'suit' or 'scope': follow where the game already put this chipset type, else the game data."""
+        for c in self.chipsets():
+            if c["archetype"] == item["archetype"]:
+                return c["kind"]
+        return self.CHIPSET_KIND_OVERRIDES.get(item["archetype"], item.get("chipset"))
+
+    def add_chipset(self, item):
+        kind = self.chipset_kind(item)
+        owned, _ = self.chipset_lists(kind)
+        if owned is None:
+            node = self.player.child("SuitMods" if kind == "suit" else "ScopeMods")
+            if node is None:
+                raise RuntimeError("This save has no %s chipset data yet." % kind)
+            owned = node.add_child(ps.Node("allChipsets"))
+        eid = self.create_item(item, 1)
+        owned.add_child(ps.Node("i")).set("v", eid, ps.KIND_INT)
+        self._set_size(owned)
+        return eid
 
     # ---- perk effects (mirrors what the game does when you buy an ability)
 
@@ -522,14 +784,17 @@ class EditorApp(tk.Tk):
         self.tab_player = ttk.Frame(self.nb, padding=8)
         self.tab_inv = ttk.Frame(self.nb, padding=8)
         self.tab_ab = ttk.Frame(self.nb, padding=8)
+        self.tab_chip = ttk.Frame(self.nb, padding=8)
         self.tab_adv = ttk.Frame(self.nb, padding=8)
         self.nb.add(self.tab_player, text="Player")
         self.nb.add(self.tab_inv, text="Inventory")
         self.nb.add(self.tab_ab, text="Abilities")
+        self.nb.add(self.tab_chip, text="Chipsets")
         self.nb.add(self.tab_adv, text="Advanced (all data)")
         self._build_player()
         self._build_inventory()
         self._build_abilities()
+        self._build_chipsets()
         self._build_advanced()
 
         self.status = tk.StringVar(value="Pick a save slot and click Load.  Close Prey before saving.")
@@ -683,20 +948,21 @@ class EditorApp(tk.Tk):
         f = self.tab_inv
         ttk.Label(f, text="Player inventory.  Double-click (or select + Set count) to change a stack size.",
                   padding=(0, 0, 0, 4)).pack(anchor="w")
-        fr, self.inv_tree = self._tree(f, ("item", "class", "count", "entity id"), (380, 220, 90, 90))
+        fr, self.inv_tree = self._tree(f, ("item", "type", "count", "entity id"), (300, 320, 90, 90))
         fr.pack(fill="both", expand=True)
         self.inv_tree.bind("<Double-1>", lambda e: self.set_count())
         bar = ttk.Frame(f, padding=(0, 6, 0, 0))
         bar.pack(fill="x")
         ttk.Button(bar, text="Set count...", command=self.set_count).pack(side="left")
+        ttk.Button(bar, text="Add item...", command=lambda: AddItemDialog(self, chipsets=False)).pack(side="left", padx=6)
         ttk.Label(bar, text="   Quick:").pack(side="left")
         ttk.Button(bar, text="Neuromods...", command=lambda: self.quick_set("Neuromod")).pack(side="left", padx=2)
         ttk.Button(bar, text="All crafting materials...",
                    command=lambda: self.quick_set("Crafting.Ingredients")).pack(side="left", padx=2)
         ttk.Button(bar, text="All ammo...", command=lambda: self.quick_set("Ammo.")).pack(side="left", padx=2)
         self.inv_note = ttk.Label(f, foreground="#666", padding=(0, 6, 0, 0), text=(
-            "Tip: only items you already carry can be changed. To add an item type, pick one up in-game "
-            "(e.g. one neuromod), save, then raise its count here."))
+            "Add item... can give you any non-weapon item (weapons, quest items and notes have to be found "
+            "in-game). Chipsets are on the Chipsets tab."))
         self.inv_note.pack(anchor="w")
 
     def fill_inventory(self):
@@ -707,7 +973,8 @@ class EditorApp(tk.Tk):
             return
         for it in self.model.inventory():
             cnt = it["ext"].get("m_count") if it["ext"] is not None else ""
-            iid = t.insert("", "end", values=(it["name"], it["class"], cnt, it["id"]))
+            iid = t.insert("", "end", values=(it["name"], it["archetype"].replace("ArkPickups.", "") or it["class"],
+                                              cnt, it["id"]))
             self._inv[iid] = it
 
     def _apply_count(self, it, n):
@@ -736,7 +1003,7 @@ class EditorApp(tk.Tk):
     def quick_set(self, needle):
         if not self.model:
             return
-        items = [it for it in self._inv.values() if needle.lower() in it["name"].lower() and it["ext"] is not None]
+        items = [it for it in self._inv.values() if needle.lower() in it["archetype"].lower() and it["ext"] is not None]
         if not items:
             messagebox.showinfo("Inventory", "You aren't carrying any '%s' items.\nPick one up in-game first."
                                 % needle.strip("."))
@@ -831,6 +1098,33 @@ class EditorApp(tk.Tk):
         self._refill_abilities_keep_scroll()
         messagebox.showinfo("Perks", "Applied missing effects for %d perk(s):\n%s\n\nClick 'Save changes' to "
                                      "write the save." % (len(fixed), "\n".join(fixed)))
+
+    # ---- chipsets tab
+    def _build_chipsets(self):
+        f = self.tab_chip
+        ttk.Label(f, wraplength=1000, justify="left", padding=(0, 0, 0, 4), text=(
+            "Suit and Psychoscope chipsets you own.  Add chipset... gives you new ones (uninstalled). "
+            "Install them in-game from the Suit/Scope Chipsets screen so the game applies their effects. "
+            "Chipset slots come from the Suit Modification (suit) and Psychotronics (scope) abilities.")).pack(anchor="w")
+        fr, self.chip_tree = self._tree(f, ("chipset", "type", "installed", "entity id"), (380, 120, 90, 90))
+        fr.pack(fill="both", expand=True)
+        bar = ttk.Frame(f, padding=(0, 6, 0, 0))
+        bar.pack(fill="x")
+        ttk.Button(bar, text="Add chipset...", command=lambda: AddItemDialog(self, chipsets=True)).pack(side="left")
+        self.chip_summary = ttk.Label(bar, padding=(12, 0))
+        self.chip_summary.pack(side="left")
+
+    def fill_chipsets(self):
+        t = self.chip_tree
+        t.delete(*t.get_children())
+        if not self.model or not self.model.player:
+            self.chip_summary.config(text="")
+            return
+        chips = self.model.chipsets()
+        for c in chips:
+            t.insert("", "end", values=(c["name"], c["kind"], "yes" if c["installed"] else "", c["id"]))
+        n_suit = sum(1 for c in chips if c["kind"] == "suit")
+        self.chip_summary.config(text="%d suit, %d scope chipsets" % (n_suit, len(chips) - n_suit))
 
     # ---- advanced tab
     def _build_advanced(self):
@@ -1047,6 +1341,7 @@ class EditorApp(tk.Tk):
         self.fill_player()
         self.fill_inventory()
         self.fill_abilities()
+        self.fill_chipsets()
         self.fill_advanced()
         self.title("Prey Save Editor - " + save.path)
         msg = "Loaded %s" % path
@@ -1181,6 +1476,128 @@ def list_backups(target):
         oldest = min(out, key=lambda b: b["when"])
         oldest["kind"] += "  (oldest = unedited original)"
     return out
+
+
+class AddItemDialog(tk.Toplevel):
+    """Pick items (or chipsets) from the game's catalog and add them to the loaded save."""
+
+    def __init__(self, app, chipsets):
+        if not app.model or not app.model.player:
+            messagebox.showinfo("Add", "Load a save.CSF first.")
+            return
+        super().__init__(app)
+        self.app = app
+        self.model = app.model
+        self.chipsets = chipsets
+        self.title("Add chipset" if chipsets else "Add item")
+        self.geometry("860x560")
+        self.transient(app)
+        self.items = addable_items(chipsets)
+        if chipsets:
+            owned = {}
+            for c in self.model.chipsets():
+                owned[c["archetype"]] = owned.get(c["archetype"], 0) + 1
+        else:
+            owned = {}
+            for it in self.model.inventory():
+                if it["ext"] is not None:
+                    owned[it["archetype"]] = owned.get(it["archetype"], 0) + (it["ext"].get("m_count") or 0)
+        self.owned = owned
+
+        top = ttk.Frame(self, padding=8)
+        top.pack(fill="x")
+        ttk.Label(top, text="Search:").pack(side="left")
+        self.q = tk.StringVar()
+        e = ttk.Entry(top, textvariable=self.q, width=30)
+        e.pack(side="left", padx=4)
+        e.focus_set()
+        self.q.trace_add("write", lambda *a: self.refresh())
+        ttk.Label(top, text="  Category:").pack(side="left")
+        cats = ["All"] + sorted({self._cat(i) for i in self.items})
+        self.cat = tk.StringVar(value="All")
+        cb = ttk.Combobox(top, textvariable=self.cat, values=cats, state="readonly", width=16)
+        cb.pack(side="left", padx=4)
+        cb.bind("<<ComboboxSelected>>", lambda e: self.refresh())
+
+        cols = ("name", "category", "size", "you have") if not chipsets else ("name", "type", "you have")
+        widths = (330, 200, 60, 90) if not chipsets else (400, 120, 90)
+        fr, self.tree = app._tree(self, cols, widths, height=16)
+        fr.pack(fill="both", expand=True, padx=8)
+        self.tree.bind("<Double-1>", lambda e: self.add())
+
+        bar = ttk.Frame(self, padding=8)
+        bar.pack(fill="x")
+        ttk.Label(bar, text="Count:").pack(side="left")
+        self.count = tk.IntVar(value=1 if chipsets else 10)
+        ttk.Spinbox(bar, from_=1, to=999999, textvariable=self.count, width=8).pack(side="left", padx=4)
+        ttk.Button(bar, text="Add selected", command=self.add).pack(side="left", padx=8)
+        ttk.Button(bar, text="Close", command=self.destroy).pack(side="right")
+        self.msg = ttk.Label(self, padding=(8, 0, 8, 8), foreground="#666", wraplength=820, justify="left", text=(
+            "Chipsets are added uninstalled; install them in-game." if chipsets else
+            "Stackable items are added to your existing stack if you have one; otherwise they go into the first "
+            "free inventory slot. Tip: multi-select with Ctrl/Shift."))
+        self.msg.pack(anchor="w")
+        self.rows = {}
+        self.refresh()
+
+    def _cat(self, i):
+        if self.chipsets:
+            return self.model.chipset_kind(i)
+        parts = i["archetype"].split(".")
+        return ".".join(parts[1:3]) if len(parts) > 3 else parts[1]
+
+    def refresh(self):
+        t = self.tree
+        t.delete(*t.get_children())
+        self.rows = {}
+        q = self.q.get().strip().lower()
+        cat = self.cat.get()
+        for i in sorted(self.items, key=lambda i: (self._cat(i), i["name"].lower())):
+            c = self._cat(i)
+            if cat != "All" and c != cat:
+                continue
+            if q and q not in i["name"].lower() and q not in i["archetype"].lower():
+                continue
+            have = self.owned.get(i["archetype"], "")
+            vals = ((i["name"], c, "%dx%d" % (i["w"], i["h"]), have) if not self.chipsets
+                    else (i["name"], c, have))
+            self.rows[t.insert("", "end", values=vals)] = i
+
+    def add(self):
+        sel = [self.rows[s] for s in self.tree.selection() if s in self.rows]
+        if not sel:
+            messagebox.showinfo("Add", "Select one or more entries first.", parent=self)
+            return
+        try:
+            n = int(self.count.get())
+        except (tk.TclError, ValueError):
+            n = 0
+        if n < 1:
+            messagebox.showerror("Add", "Count must be at least 1.", parent=self)
+            return
+        done, errors = [], []
+        for item in sel:
+            try:
+                if self.chipsets:
+                    for _ in range(n):
+                        self.model.add_chipset(item)
+                    done.append("%s x%d" % (item["name"], n))
+                    self.owned[item["archetype"]] = self.owned.get(item["archetype"], 0) + n
+                else:
+                    done.append(self.model.add_inventory_item(item, n))
+                    self.owned[item["archetype"]] = self.owned.get(item["archetype"], 0) + n
+            except RuntimeError as e:
+                errors.append(str(e))
+        if done:
+            self.app.mark_dirty()
+            self.app.fill_inventory()
+            self.app.fill_chipsets()
+            self.app.fill_player()
+            self.refresh()
+        text = ("Added: " + "; ".join(done) + ".  Click 'Save changes' to write the save.") if done else ""
+        if errors:
+            text += ("\n" if text else "") + "Problems: " + " ".join(errors)
+        self.msg.config(text=text, foreground="#b00020" if errors else "#1a7f37")
 
 
 class BackupDialog(tk.Toplevel):

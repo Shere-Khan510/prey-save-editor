@@ -285,6 +285,13 @@ class Node:
             self.children.insert(index, node)
         return node
 
+    def clone(self):
+        """Deep copy of this subtree (the copy has no parent)."""
+        n = Node(self.tag, [Attr(a.name, a.type, a.value) for a in self.attrs])
+        for c in self.children:
+            n.add_child(c.clone())
+        return n
+
     def path(self):
         parts = []
         n = self

@@ -9,7 +9,8 @@ A save editor for Arkane's **Prey (2017)**. Prey saves are encrypted, compressed
 | Tab | What you can do |
 |---|---|
 | **Player** | Health, max health, psi points, and every player stat (HP pool, psi pool, inventory size, suit/scope chipset slots, move speed, …) |
-| **Inventory** | Change the stack count of anything you carry: neuromods, crafting materials, ammo, medkits, … Quick buttons set all materials or all ammo at once. |
+| **Inventory** | Change the stack count of anything you carry, and **add any non-weapon item**: neuromods, materials, ammo, medkits, food, junk, weapon upgrade kits… (searchable picker with in-game names). Quick buttons set all materials or all ammo at once. |
+| **Chipsets** | See every suit and Psychoscope chipset you own, and **add new ones** (install them in-game). |
 | **Abilities** | Unlock or remove neuromod abilities. The editor applies the same effects the game does when you buy a perk: stat bonuses (e.g. Suit Modification → inventory size and chipset slots), damage-resistance/weapon modifiers, and psi power levels. **Fix missing perk effects** repairs perks that are marked unlocked but never got their bonuses. |
 | **Advanced** | The whole save as a searchable tree. View and edit any value in `save.CSF` or any `*.level` file. |
 | **Launch Prey** | Starts the game from the editor (offers to save your edits first). Steam installs are found automatically; for GOG/other installs it asks for `Prey.exe` once and remembers it (change it with the **…** button). |
@@ -36,7 +37,7 @@ Backups go to `%USERPROFILE%\Saved Games\Arkane Studios\Prey\SaveEditorBackups\<
 Even so, **copy your SaveGames folder somewhere safe before your first edit.**
 
 ### Tips
-* You can only change the count of items you already carry. To add an item type, pick one up in-game, save, then raise its count here.
+* **Add item…** puts new items in the first free inventory slot (or tops up your existing stack). Weapons, quest items and notes can't be added. Find those in-game.
 * "Scope chipset slots" come from the **Psychotronics** perks; "suit chipset slots" from **Suit Modification**.
 
 ## Compatibility
@@ -81,7 +82,7 @@ s.save()                                      # re-encrypts and fixes the MD5
 
 ## Credits & notes
 
-* Ability names and modifiers in `abilities.json` were extracted from the game's `Ark/Player/Abilities.xml` (via the [Chairloader](https://github.com/thelivingdiamond/Chairloader) project's extracted game files).
+* Item and ability data (`items.json`, `abilities.json`) was generated with `tools/build_catalog.py` from the game's `Libs/EntityArchetypes/ArkPickups.xml`, `Ark/Player/Abilities.xml` and English localization (via the [Chairloader](https://github.com/thelivingdiamond/Chairloader) project's extracted game files).
 * Not affiliated with or endorsed by Arkane Studios or Bethesda. Prey is a trademark of ZeniMax Media Inc.
 * Use at your own risk and keep backups.
 
