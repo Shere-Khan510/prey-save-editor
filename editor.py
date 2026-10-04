@@ -225,9 +225,19 @@ def list_slots():
 
 
 def backup_file(path):
-    rel = os.path.relpath(path, SAVE_ROOT) if path.startswith(SAVE_ROOT) else os.path.basename(path)
-    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = os.path.abspath(path)
+    save_root = os.path.abspath(SAVE_ROOT)
+    try:
+        inside_save_root = os.path.commonpath((path, save_root)) == save_root
+    except ValueError:
+        inside_save_root = False
+    rel = os.path.relpath(path, save_root) if inside_save_root else os.path.basename(path)
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     dst = os.path.join(BACKUP_ROOT, stamp, rel)
+    suffix = 1
+    while os.path.exists(dst):
+        dst = os.path.join(BACKUP_ROOT, "%s_%d" % (stamp, suffix), rel)
+        suffix += 1
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     shutil.copy2(path, dst)
     return dst
@@ -611,7 +621,7 @@ class PreyModel:
             v = i.child("v")
             if v is not None and v.get("entity") == pid:
                 mods = v.child("modifiers")
-                if mods is None:
+                if mods is None and create:
                     mods = v.add_child(ps.Node("modifiers"))
                 return mods
         if not create or pid is None:
@@ -623,12 +633,32 @@ class PreyModel:
         self._set_size(lst)
         return mods
 
+    def _missing_stat_effects(self, r, info):
+        """Return configured stat effects that are not represented by this ability's modifier ids."""
+        rm = r.child("modifiers")
+        ids = {c.get("v") for c in self._list_items(rm)} if rm is not None else set()
+        missing = []
+        for stat_name, val in info.get("stats", []):
+            st = self._stat_by_name(stat_name)
+            if st is None:
+                continue
+            mods = st.child("modifiers")
+            found = False
+            if mods is not None:
+                for item in self._list_items(mods):
+                    mod = item.find("Modifier")
+                    if mod is not None and mod.get("id") in ids:
+                        found = True
+                        break
+            if not found:
+                missing.append((st, val))
+        return missing
+
     def missing_effects(self, r, info):
         """True if an acquired perk is missing the stat/signal modifiers the game would have added."""
         if not r.get("acquired"):
             return False
-        rm = r.child("modifiers")
-        if info.get("stats") and (rm is None or not self._list_items(rm)):
+        if self._missing_stat_effects(r, info):
             return True
         for sig, inbound in info.get("signals", []):
             mods = self._signal_list(inbound, False)
@@ -640,25 +670,22 @@ class PreyModel:
         rm = r.child("modifiers")
         if rm is None:
             rm = r.add_child(ps.Node("modifiers"))
-        if not self._list_items(rm):
-            for stat_name, val in info.get("stats", []):
-                st = self._stat_by_name(stat_name)
-                if st is None:
-                    continue
-                mid = self._next_modifier_id()
-                mods = st.child("modifiers")
-                if mods is None:
-                    mods = st.add_child(ps.Node("modifiers"))
-                i = mods.add_child(ps.Node("i"))
-                v = i.add_child(ps.Node("v"))
-                mod = v.add_child(ps.Node("Modifier"))
-                mod.set("id", mid, ps.KIND_INT)
-                v = self._num(val)
-                mod.set("value", v, ps.KIND_INT if isinstance(v, int) else ps.KIND_FLOAT)
-                self._set_size(mods)
-                st.set("currentValue", self._num(st.get("currentValue", st.get("baseValue", 0)) + val), ps.KIND_FLOAT)
-                ri = rm.add_child(ps.Node("i"))
-                ri.set("v", mid, ps.KIND_INT)
+        for st, val in self._missing_stat_effects(r, info):
+            mid = self._next_modifier_id()
+            mods = st.child("modifiers")
+            if mods is None:
+                mods = st.add_child(ps.Node("modifiers"))
+            i = mods.add_child(ps.Node("i"))
+            v = i.add_child(ps.Node("v"))
+            mod = v.add_child(ps.Node("Modifier"))
+            mod.set("id", mid, ps.KIND_INT)
+            v = self._num(val)
+            mod.set("value", v, ps.KIND_INT if isinstance(v, int) else ps.KIND_FLOAT)
+            self._set_size(mods)
+            st.set("currentValue", self._num(st.get("currentValue", st.get("baseValue", 0)) + val), ps.KIND_FLOAT)
+            ri = rm.add_child(ps.Node("i"))
+            ri.set("v", mid, ps.KIND_INT)
+        if self._list_items(rm):
             self._set_size(rm)
         for sig, inbound in info.get("signals", []):
             mods = self._signal_list(inbound, True)
@@ -753,6 +780,7 @@ class EditorApp(tk.Tk):
         self.model = None
         self.dirty = False
         self.slots = []
+        self._load_request_id = 0
         self._build()
         self.refresh_slots()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -1316,6 +1344,8 @@ class EditorApp(tk.Tk):
         self.status.set("Loading %s ..." % path)
         self.config(cursor="watch")
         self.update_idletasks()
+        self._load_request_id += 1
+        request_id = self._load_request_id
 
         def work():
             try:
@@ -1325,10 +1355,12 @@ class EditorApp(tk.Tk):
                 save, err = None, e
             if save is not None and target:
                 save.path = os.path.normpath(target)
-            self.after(0, lambda: self._loaded(path, save, err, target))
+            self.after(0, lambda: self._loaded(request_id, path, save, err, target))
         threading.Thread(target=work, daemon=True).start()
 
-    def _loaded(self, path, save, err, target=None):
+    def _loaded(self, request_id, path, save, err, target=None):
+        if request_id != self._load_request_id:
+            return
         self.config(cursor="")
         if err:
             messagebox.showerror("Load failed", "%s\n\n%s" % (path, err))
@@ -1458,9 +1490,12 @@ def list_backups(target):
             p = os.path.join(BACKUP_ROOT, stamp, rel)
             if os.path.isfile(p):
                 try:
-                    when = datetime.datetime.strptime(stamp, "%Y%m%d_%H%M%S")
+                    when = datetime.datetime.strptime(stamp[:22], "%Y%m%d_%H%M%S_%f")
                 except ValueError:
-                    when = datetime.datetime.fromtimestamp(os.path.getmtime(p))
+                    try:
+                        when = datetime.datetime.strptime(stamp, "%Y%m%d_%H%M%S")
+                    except ValueError:
+                        when = datetime.datetime.fromtimestamp(os.path.getmtime(p))
                 out.append({"path": p, "when": when, "kind": "before editor save"})
     for d in os.listdir(PREY_DIR) if os.path.isdir(PREY_DIR) else []:
         if d.startswith("SaveGames_backup_"):

@@ -11,7 +11,9 @@ decompressed data (CryEngine XMLCPB binary XML):
     [nodes][tags table][attr-name table][string-data table][attr-set table]
 """
 import hashlib
+import os
 import struct
+import tempfile
 import zlib
 
 MAGIC = b"CRY3SDK"
@@ -742,8 +744,20 @@ class SaveFile:
         blob = self.to_bytes()
         # sanity: must parse back
         SaveFile(raw=blob)
-        with open(path, "wb") as f:
-            f.write(blob)
+        target = os.path.abspath(path)
+        directory = os.path.dirname(target)
+        fd, tmp = tempfile.mkstemp(prefix=".%s." % os.path.basename(target), suffix=".tmp", dir=directory)
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(blob)
+                f.flush()
+                os.fsync(f.fileno())
+            # Validate the bytes that actually reached disk before replacing the live save.
+            SaveFile(tmp)
+            os.replace(tmp, target)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
         return path
 
 
