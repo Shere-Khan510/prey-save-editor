@@ -2,7 +2,7 @@
 Regenerate items.json and abilities.json from Prey's game data.
 
 Needs the game's XML files extracted, e.g. by Chairloader (its PreyFiles folder):
-    python tools/build_catalog.py "D:\\Games\\Prey\\Chairloader\\PreyFiles"
+    python tools/build_catalog.py "<Chairloader PreyFiles folder>"
 """
 import json
 import os

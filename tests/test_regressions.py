@@ -21,6 +21,30 @@ class FixedDatetime(datetime.datetime):
 
 
 class RegressionTests(unittest.TestCase):
+    def test_custom_save_root_accepts_common_parent_levels(self):
+        with tempfile.TemporaryDirectory() as temp:
+            saved_games = pathlib.Path(temp) / "Relocated Saved Games"
+            save_root = saved_games / "Arkane Studios" / "Prey" / "SaveGames"
+            slot = save_root / "Campaign0" / "manual0"
+            slot.mkdir(parents=True)
+            (slot / "save.CSF").write_bytes(b"save")
+
+            self.assertEqual(editor.resolve_save_root(str(save_root)), str(save_root))
+            self.assertEqual(editor.resolve_save_root(str(save_root.parent)), str(save_root))
+            self.assertEqual(editor.resolve_save_root(str(saved_games)), str(save_root))
+
+    def test_setting_save_root_keeps_backups_beside_it(self):
+        old_paths = editor.PREY_DIR, editor.SAVE_ROOT, editor.BACKUP_ROOT
+        try:
+            with tempfile.TemporaryDirectory() as temp:
+                root = pathlib.Path(temp) / "Prey" / "SaveGames"
+                editor.set_save_root(str(root))
+                self.assertEqual(editor.SAVE_ROOT, str(root))
+                self.assertEqual(editor.PREY_DIR, str(root.parent))
+                self.assertEqual(editor.BACKUP_ROOT, str(root.parent / "SaveEditorBackups"))
+        finally:
+            editor.PREY_DIR, editor.SAVE_ROOT, editor.BACKUP_ROOT = old_paths
+
     def test_backups_do_not_collide_at_the_same_timestamp(self):
         with tempfile.TemporaryDirectory() as temp:
             root = pathlib.Path(temp)

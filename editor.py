@@ -28,7 +28,42 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import preysave as ps  # noqa: E402
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
-PREY_DIR = os.path.join(os.path.expanduser("~"), "Saved Games", "Arkane Studios", "Prey")
+APP_VERSION = "1.1.0"
+SETTINGS_PATH = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "PreySaveEditor",
+                             "settings.json")
+
+
+def _saved_games_folder():
+    """Return the current user's Windows Saved Games known folder, including redirected locations."""
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            class GUID(ctypes.Structure):
+                _fields_ = (("Data1", ctypes.c_ulong), ("Data2", ctypes.c_ushort),
+                            ("Data3", ctypes.c_ushort), ("Data4", ctypes.c_ubyte * 8))
+
+            folder_id = GUID(0x4C5C32FF, 0xBB9D, 0x43B0,
+                             (ctypes.c_ubyte * 8)(0xB5, 0xB4, 0x2D, 0x72, 0xE5, 0x4E, 0xAA, 0xA4))
+            path = ctypes.c_wchar_p()
+            shell32 = ctypes.windll.shell32
+            shell32.SHGetKnownFolderPath.argtypes = (
+                ctypes.POINTER(GUID), ctypes.c_uint32, ctypes.c_void_p, ctypes.POINTER(ctypes.c_wchar_p))
+            shell32.SHGetKnownFolderPath.restype = ctypes.c_long
+            if shell32.SHGetKnownFolderPath(ctypes.byref(folder_id), 0, None, ctypes.byref(path)) == 0:
+                try:
+                    return path.value
+                finally:
+                    ole32 = ctypes.windll.ole32
+                    ole32.CoTaskMemFree.argtypes = (ctypes.c_void_p,)
+                    ole32.CoTaskMemFree.restype = None
+                    ole32.CoTaskMemFree(ctypes.cast(path, ctypes.c_void_p))
+        except (AttributeError, OSError, ValueError):
+            pass
+    return os.path.join(os.path.expanduser("~"), "Saved Games")
+
+
+PREY_DIR = os.path.join(_saved_games_folder(), "Arkane Studios", "Prey")
 SAVE_ROOT = os.path.join(PREY_DIR, "SaveGames")
 BACKUP_ROOT = os.path.join(PREY_DIR, "SaveEditorBackups")
 
@@ -113,8 +148,6 @@ def game_running():
 # ---------------------------------------------------------------- launching the game
 
 STEAM_APP_ID = "480490"
-SETTINGS_PATH = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "PreySaveEditor",
-                             "settings.json")
 
 
 def load_settings():
@@ -129,6 +162,34 @@ def save_settings(settings):
     os.makedirs(os.path.dirname(SETTINGS_PATH), exist_ok=True)
     with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
         json.dump(settings, f, indent=2)
+
+
+def set_save_root(path):
+    """Update the active save and backup locations. `path` must be the SaveGames directory."""
+    global PREY_DIR, SAVE_ROOT, BACKUP_ROOT
+    SAVE_ROOT = os.path.abspath(os.path.normpath(path))
+    PREY_DIR = os.path.dirname(SAVE_ROOT)
+    BACKUP_ROOT = os.path.join(PREY_DIR, "SaveEditorBackups")
+
+
+def resolve_save_root(path):
+    """Accept SaveGames itself, the Prey directory, or the Saved Games directory."""
+    path = os.path.abspath(os.path.normpath(path))
+    candidates = (path, os.path.join(path, "SaveGames"),
+                  os.path.join(path, "Arkane Studios", "Prey", "SaveGames"))
+    for candidate in candidates:
+        if os.path.isdir(candidate) and any(
+                os.path.isfile(os.path.join(candidate, campaign, slot, "save.CSF"))
+                for campaign in os.listdir(candidate)
+                if os.path.isdir(os.path.join(candidate, campaign))
+                for slot in os.listdir(os.path.join(candidate, campaign))):
+            return candidate
+    return None
+
+
+_custom_save_root = load_settings().get("save_root")
+if _custom_save_root:
+    set_save_root(_custom_save_root)
 
 
 def _reg_value(root, key, name):
@@ -773,14 +834,15 @@ class PreyModel:
 class EditorApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Prey Save Editor")
-        self.geometry("1100x720")
-        self.minsize(820, 520)
+        self.title("Prey Save Editor %s" % APP_VERSION)
+        self.geometry("1180x760")
+        self.minsize(900, 600)
         self.save = None
         self.model = None
         self.dirty = False
         self.slots = []
         self._load_request_id = 0
+        self._loaded_display = None
         self._build()
         self.refresh_slots()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -790,30 +852,58 @@ class EditorApp(tk.Tk):
         style = ttk.Style(self)
         if "vista" in style.theme_names():
             style.theme_use("vista")
-        style.configure("Treeview", rowheight=22)
+        style.configure("Title.TLabel", font=("Segoe UI", 16, "bold"))
+        style.configure("Subtitle.TLabel", foreground="#606060", font=("Segoe UI", 9))
+        style.configure("Accent.TButton", font=("Segoe UI", 9, "bold"), padding=(14, 7))
+        style.configure("Toolbar.TButton", padding=(9, 5))
+        style.configure("Treeview", rowheight=25, font=("Segoe UI", 9))
+        style.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"))
+        style.configure("TNotebook.Tab", padding=(14, 7))
 
-        top = ttk.Frame(self, padding=(8, 8, 8, 4))
-        top.pack(fill="x")
-        ttk.Label(top, text="Save slot:").pack(side="left")
+        header = ttk.Frame(self, padding=(12, 10, 12, 6))
+        header.pack(fill="x")
+        header.columnconfigure(1, weight=1)
+        ttk.Label(header, text="Prey Save Editor", style="Title.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w")
+        self.file_var = tk.StringVar(value="No save loaded")
+        ttk.Label(header, textvariable=self.file_var, style="Subtitle.TLabel", anchor="e").grid(
+            row=0, column=2, columnspan=5, sticky="e", padx=(12, 0))
+
+        ttk.Label(header, text="Save slot:").grid(row=1, column=0, sticky="w", pady=(10, 6), padx=(0, 8))
         self.slot_var = tk.StringVar()
-        self.slot_combo = ttk.Combobox(top, textvariable=self.slot_var, state="readonly", width=70)
-        self.slot_combo.pack(side="left", padx=6)
-        ttk.Button(top, text="Load", command=self.load_selected).pack(side="left")
-        ttk.Button(top, text="Open file...", command=self.open_file).pack(side="left", padx=4)
-        ttk.Button(top, text="Refresh", command=self.refresh_slots).pack(side="left")
-        ttk.Button(top, text="Launch Prey", command=self.launch_game).pack(side="left", padx=(16, 0))
-        ttk.Button(top, text="...", width=3, command=self.choose_game_exe).pack(side="left")
-        self.save_btn = ttk.Button(top, text="Save changes", command=self.do_save, state="disabled")
-        self.save_btn.pack(side="right")
-        ttk.Button(top, text="Backups...", command=self.open_backups).pack(side="right", padx=4)
+        self.slot_combo = ttk.Combobox(header, textvariable=self.slot_var, state="readonly")
+        self.slot_combo.grid(row=1, column=1, columnspan=4, sticky="ew", pady=(10, 6))
+        self.slot_combo.bind("<Return>", lambda _e: self.load_selected())
+        ttk.Button(header, text="Load", command=self.load_selected, style="Toolbar.TButton").grid(
+            row=1, column=5, padx=(8, 4), pady=(10, 6))
+        ttk.Button(header, text="Refresh", command=self.refresh_slots, style="Toolbar.TButton").grid(
+            row=1, column=6, pady=(10, 6))
+
+        actions = ttk.Frame(header)
+        actions.grid(row=2, column=0, columnspan=7, sticky="ew")
+        actions.columnconfigure(6, weight=1)
+        ttk.Button(actions, text="Open file...", command=self.open_file, style="Toolbar.TButton").grid(
+            row=0, column=0, padx=(0, 4))
+        ttk.Button(actions, text="Save folder...", command=self.choose_save_folder, style="Toolbar.TButton").grid(
+            row=0, column=1, padx=4)
+        ttk.Button(actions, text="Backups...", command=self.open_backups, style="Toolbar.TButton").grid(
+            row=0, column=2, padx=4)
+        ttk.Separator(actions, orient="vertical").grid(row=0, column=3, sticky="ns", padx=8)
+        ttk.Button(actions, text="Launch Prey", command=self.launch_game, style="Toolbar.TButton").grid(
+            row=0, column=4, padx=(0, 4))
+        ttk.Button(actions, text="Game location...", command=self.choose_game_exe, style="Toolbar.TButton").grid(
+            row=0, column=5)
+        self.save_btn = ttk.Button(
+            actions, text="Save changes", command=self.do_save, state="disabled", style="Accent.TButton")
+        self.save_btn.grid(row=0, column=7, sticky="e")
 
         self.nb = ttk.Notebook(self)
-        self.nb.pack(fill="both", expand=True, padx=8, pady=4)
-        self.tab_player = ttk.Frame(self.nb, padding=8)
-        self.tab_inv = ttk.Frame(self.nb, padding=8)
-        self.tab_ab = ttk.Frame(self.nb, padding=8)
-        self.tab_chip = ttk.Frame(self.nb, padding=8)
-        self.tab_adv = ttk.Frame(self.nb, padding=8)
+        self.nb.pack(fill="both", expand=True, padx=12, pady=(4, 8))
+        self.tab_player = ttk.Frame(self.nb, padding=10)
+        self.tab_inv = ttk.Frame(self.nb, padding=10)
+        self.tab_ab = ttk.Frame(self.nb, padding=10)
+        self.tab_chip = ttk.Frame(self.nb, padding=10)
+        self.tab_adv = ttk.Frame(self.nb, padding=10)
         self.nb.add(self.tab_player, text="Player")
         self.nb.add(self.tab_inv, text="Inventory")
         self.nb.add(self.tab_ab, text="Abilities")
@@ -826,7 +916,35 @@ class EditorApp(tk.Tk):
         self._build_advanced()
 
         self.status = tk.StringVar(value="Pick a save slot and click Load.  Close Prey before saving.")
-        ttk.Label(self, textvariable=self.status, relief="sunken", anchor="w", padding=(6, 2)).pack(fill="x")
+        ttk.Separator(self, orient="horizontal").pack(fill="x")
+        ttk.Label(self, textvariable=self.status, anchor="w", padding=(12, 6)).pack(fill="x")
+
+        self.bind_all("<Control-o>", lambda _e: self._shortcut(self.open_file))
+        self.bind_all("<Control-s>", lambda _e: self._shortcut(self.do_save, self.dirty))
+        self.bind_all("<F5>", lambda _e: self._shortcut(self.refresh_slots))
+
+    @staticmethod
+    def _shortcut(callback, enabled=True):
+        if enabled:
+            callback()
+        return "break"
+
+    def _display_save_path(self, path):
+        path = os.path.normpath(path)
+        try:
+            if os.path.commonpath((os.path.abspath(path), os.path.abspath(SAVE_ROOT))) == os.path.abspath(SAVE_ROOT):
+                return os.path.relpath(path, SAVE_ROOT)
+        except ValueError:
+            pass
+        return path
+
+    def _update_file_label(self):
+        if self._loaded_display is None:
+            self.file_var.set("No save loaded")
+        elif self.dirty:
+            self.file_var.set("Unsaved changes  •  " + self._loaded_display)
+        else:
+            self.file_var.set("Loaded  •  " + self._loaded_display)
 
     def _tree(self, parent, cols, widths, height=None):
         frame = ttk.Frame(parent)
@@ -1049,7 +1167,7 @@ class EditorApp(tk.Tk):
     # ---- abilities tab
     def _build_abilities(self):
         f = self.tab_ab
-        ttk.Label(f, wraplength=1000, justify="left", padding=(0, 0, 0, 4), text=(
+        ttk.Label(f, wraplength=820, justify="left", padding=(0, 0, 0, 6), text=(
             "Neuromod abilities.  Double-click (or select several + Toggle) to acquire / remove.  The editor applies "
             "the same effects the game does when you buy a perk: stat bonuses (inventory size, health, suit mod "
             "slots, ...), damage-resistance/weapon signal modifiers, and psi power levels.  'effects' shows "
@@ -1130,7 +1248,7 @@ class EditorApp(tk.Tk):
     # ---- chipsets tab
     def _build_chipsets(self):
         f = self.tab_chip
-        ttk.Label(f, wraplength=1000, justify="left", padding=(0, 0, 0, 4), text=(
+        ttk.Label(f, wraplength=820, justify="left", padding=(0, 0, 0, 6), text=(
             "Suit and Psychoscope chipsets you own.  Add chipset... gives you new ones (uninstalled). "
             "Install them in-game from the Suit/Scope Chipsets screen so the game applies their effects. "
             "Chipset slots come from the Suit Modification (suit) and Psychotronics (scope) abilities.")).pack(anchor="w")
@@ -1324,6 +1442,9 @@ class EditorApp(tk.Tk):
         self.slot_combo["values"] = [s["label"] for s in self.slots]
         if self.slots and not self.slot_var.get():
             self.slot_combo.current(0)
+        elif not self.slots:
+            self.slot_var.set("")
+            self.status.set("No saves found in %s. Use 'Save folder...' for a custom location." % SAVE_ROOT)
 
     def load_selected(self):
         i = self.slot_combo.current()
@@ -1342,6 +1463,7 @@ class EditorApp(tk.Tk):
         if self.dirty and not messagebox.askyesno("Unsaved changes", "Discard unsaved changes?"):
             return
         self.status.set("Loading %s ..." % path)
+        self.file_var.set("Loading  •  " + self._display_save_path(path))
         self.config(cursor="watch")
         self.update_idletasks()
         self._load_request_id += 1
@@ -1365,17 +1487,20 @@ class EditorApp(tk.Tk):
         if err:
             messagebox.showerror("Load failed", "%s\n\n%s" % (path, err))
             self.status.set("Load failed.")
+            self._update_file_label()
             return
         self.save = save
         self.model = PreyModel(save)
         self.dirty = False
+        self._loaded_display = self._display_save_path(save.path)
+        self._update_file_label()
         self.save_btn.config(state="disabled")
         self.fill_player()
         self.fill_inventory()
         self.fill_abilities()
         self.fill_chipsets()
         self.fill_advanced()
-        self.title("Prey Save Editor - " + save.path)
+        self.title("Prey Save Editor %s — %s" % (APP_VERSION, self._loaded_display))
         msg = "Loaded %s" % path
         if target:
             self.mark_dirty()
@@ -1386,6 +1511,7 @@ class EditorApp(tk.Tk):
 
     def mark_dirty(self):
         self.dirty = True
+        self._update_file_label()
         self.save_btn.config(state="normal")
         self.status.set("Unsaved changes.")
 
@@ -1404,9 +1530,34 @@ class EditorApp(tk.Tk):
             messagebox.showerror("Save failed", str(e))
             return
         self.dirty = False
+        self._loaded_display = self._display_save_path(path)
+        self._update_file_label()
         self.save_btn.config(state="disabled")
         self.status.set("Saved %s   (backup: %s)" % (path, bak))
         messagebox.showinfo("Saved", "Save written.\n\nBackup of the original:\n%s" % bak)
+
+    def choose_save_folder(self):
+        """Select and remember a nonstandard Prey SaveGames location."""
+        selected = filedialog.askdirectory(
+            title="Select Prey's SaveGames folder (or its parent Prey / Saved Games folder)",
+            initialdir=SAVE_ROOT if os.path.isdir(SAVE_ROOT) else _saved_games_folder())
+        if not selected:
+            return
+        root = resolve_save_root(selected)
+        if root is None:
+            messagebox.showerror(
+                "Save folder",
+                "No Prey save.CSF files were found there.\n\nSelect SaveGames, the Arkane Studios\\Prey folder, "
+                "or the Windows Saved Games folder containing your Prey saves.")
+            return
+        settings = load_settings()
+        settings["save_root"] = root
+        save_settings(settings)
+        set_save_root(root)
+        self.refresh_slots()
+        if self.slots:
+            self.slot_combo.current(0)
+        self.status.set("Using save folder: " + SAVE_ROOT)
 
     def choose_game_exe(self):
         """Ask for Prey.exe and remember it. Returns the path or None."""
@@ -1526,7 +1677,9 @@ class AddItemDialog(tk.Toplevel):
         self.chipsets = chipsets
         self.title("Add chipset" if chipsets else "Add item")
         self.geometry("860x560")
+        self.minsize(720, 480)
         self.transient(app)
+        self.grab_set()
         self.items = addable_items(chipsets)
         if chipsets:
             owned = {}
@@ -1539,7 +1692,7 @@ class AddItemDialog(tk.Toplevel):
                     owned[it["archetype"]] = owned.get(it["archetype"], 0) + (it["ext"].get("m_count") or 0)
         self.owned = owned
 
-        top = ttk.Frame(self, padding=8)
+        top = ttk.Frame(self, padding=12)
         top.pack(fill="x")
         ttk.Label(top, text="Search:").pack(side="left")
         self.q = tk.StringVar()
@@ -1557,23 +1710,25 @@ class AddItemDialog(tk.Toplevel):
         cols = ("name", "category", "size", "you have") if not chipsets else ("name", "type", "you have")
         widths = (330, 200, 60, 90) if not chipsets else (400, 120, 90)
         fr, self.tree = app._tree(self, cols, widths, height=16)
-        fr.pack(fill="both", expand=True, padx=8)
+        fr.pack(fill="both", expand=True, padx=12)
         self.tree.bind("<Double-1>", lambda e: self.add())
 
-        bar = ttk.Frame(self, padding=8)
+        bar = ttk.Frame(self, padding=12)
         bar.pack(fill="x")
         ttk.Label(bar, text="Count:").pack(side="left")
         self.count = tk.IntVar(value=1 if chipsets else 10)
         ttk.Spinbox(bar, from_=1, to=999999, textvariable=self.count, width=8).pack(side="left", padx=4)
-        ttk.Button(bar, text="Add selected", command=self.add).pack(side="left", padx=8)
-        ttk.Button(bar, text="Close", command=self.destroy).pack(side="right")
-        self.msg = ttk.Label(self, padding=(8, 0, 8, 8), foreground="#666", wraplength=820, justify="left", text=(
+        ttk.Button(bar, text="Add selected", command=self.add, style="Accent.TButton").pack(side="left", padx=8)
+        ttk.Button(bar, text="Close", command=self.destroy, style="Toolbar.TButton").pack(side="right")
+        self.msg = ttk.Label(self, padding=(12, 0, 12, 10), foreground="#666", wraplength=800,
+                             justify="left", text=(
             "Chipsets are added uninstalled; install them in-game." if chipsets else
             "Stackable items are added to your existing stack if you have one; otherwise they go into the first "
             "free inventory slot. Tip: multi-select with Ctrl/Shift."))
         self.msg.pack(anchor="w")
         self.rows = {}
         self.refresh()
+        self.bind("<Escape>", lambda _e: self.destroy())
 
     def _cat(self, i):
         if self.chipsets:

@@ -33,6 +33,10 @@ Tested in-game on the Steam version (build 11720871): edited saves load normally
 Saves live in `%USERPROFILE%\Saved Games\Arkane Studios\Prey\SaveGames\Campaign<N>\<slot>\`.
 Player data (inventory, stats, abilities) is in `save.CSF`; each `*.level` file holds the state of one level you've visited.
 
+The editor asks Windows for the actual **Saved Games** known-folder location, so redirected user folders work too.
+If your saves are elsewhere, click **Save folder…** and select `SaveGames` (or its parent Prey/Saved Games folder);
+the choice is remembered for future runs. **Open file…** can also load any individual compatible save.
+
 Backups go to `%USERPROFILE%\Saved Games\Arkane Studios\Prey\SaveEditorBackups\<timestamp>\`.
 Even so, **copy your SaveGames folder somewhere safe before your first edit.**
 
